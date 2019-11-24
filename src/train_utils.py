@@ -28,7 +28,6 @@ def mask_mean_2d(values, mask):
 
     mean = tf.keras.metric.Mean(name='mask_mean')
 
-
 def loss_function(real, pred):
     l_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     mask = tf.math.logical_not(tf.math.equal(real, 0))

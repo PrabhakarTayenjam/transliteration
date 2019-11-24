@@ -37,7 +37,7 @@ val_loss = tf.keras.metrics.Mean(name='train_loss')
 val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
 
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
-optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.optimizers.Adam(0.001, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
