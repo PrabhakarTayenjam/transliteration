@@ -5,6 +5,7 @@ import time
 import os
 import shutil
 import pdb
+import numpy as np
 
 import data
 import param
@@ -37,7 +38,7 @@ val_loss = tf.keras.metrics.Mean(name='train_loss')
 val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
 
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
-optimizer = tf.keras.optimizers.Adam(0.001, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.optimizers.Adam(0.0001, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
@@ -55,9 +56,9 @@ def parse_cl_args():
 # batch sizes (the last batch is smaller), use input_signature to specify
 # more generic shapes.
 train_step_signature = [
-    tf.TensorSpec(shape=(None, None), dtype=tf.float64),
-    tf.TensorSpec(shape=(None, None), dtype=tf.float64),
-    tf.TensorSpec(shape=(None, None), dtype=tf.float64)
+    tf.TensorSpec(shape=(None, None), dtype=tf.float32),
+    tf.TensorSpec(shape=(None, None), dtype=tf.float32),
+    tf.TensorSpec(shape=(None, None), dtype=tf.float32)
 ]
 @tf.function(input_signature = train_step_signature)
 def train_step(inp, tar_inp, tar_real):
@@ -73,9 +74,9 @@ def train_step(inp, tar_inp, tar_real):
 
     gradients = tape.gradient(loss, transformer.trainable_variables)    
     optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
-    
     train_loss(loss)
     train_accuracy(tar_real, predictions)
+    return predictions
 
 def validate(val_dataset, transformer):
     val_loss.reset_states()
@@ -100,6 +101,15 @@ def get_time(secs):
     s = rem_sec - (m * 60)
 
     return '{} hrs {} min {:.2f} secs'.format(h, m, s)
+
+pred_file = open("./predictions", 'w')
+def write_pred(pred, tar):
+    pred = np.argmax(pred.numpy(), axis=1).tolist()
+    tar = tar.numpy().tolist()
+
+    for elm in zip(pred, tar):
+        pred_file.write('pred: {}\n'.format(str(elm[0])))
+        pred_file.write('tar : {}\n\n'.format(str(elm[1])))
 
 
 def main():
@@ -138,6 +148,7 @@ def main():
             ckpt.restore(ckpt_manager.latest_checkpoint)
             print ('\nLatest checkpoint restored!!')
 
+   
     for epoch in range(cl_args.epochs):
         start = time.time()
         print('\nEPOCH: ', epoch+1)
@@ -148,7 +159,9 @@ def main():
         for batch, dataset in enumerate(train_dataset):
             inp, tar_inp, tar_real = dataset[:, 0, :]    , dataset[:, 1, :], dataset[:, 2, :]            
             
-            train_step(inp, tar_inp, tar_real)
+            pred = train_step(inp, tar_inp, tar_real)
+            
+            # write_pred(pred, tar_real)
             
             if (batch + 1) % 100 == 0:
                 print ('\tBatch update\tEpoch: {}\t Batch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(epoch + 1, batch + 1,

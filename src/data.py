@@ -9,7 +9,7 @@ eng_vocab_size = len(lookup.eng_lookup)
 hin_vocab_size = len(lookup.hin_lookup)
 
 def eng_encode(word):
-    tokens = np.zeros(param.PAD_SIZE, dtype=float)
+    tokens = np.zeros(param.PAD_SIZE, dtype='float32')
     for i, ch in enumerate(word):
         tokens[i] = lookup.eng_lookup.get(ch, lookup.eng_lookup[param.UNK])
     return tokens
@@ -21,7 +21,7 @@ def eng_decode(tokens):
     return word
 
 def hin_encode(word):
-    tokens = np.zeros(param.PAD_SIZE, dtype=float)
+    tokens = np.zeros(param.PAD_SIZE, dtype='float32')
     for i, ch in enumerate(word):
         tokens[i] = lookup.hin_lookup.get(ch, lookup.hin_lookup[param.UNK])
     return tokens

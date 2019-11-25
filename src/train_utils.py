@@ -23,18 +23,14 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
-def mask_mean_2d(values, mask):
-    assert tf.shape(values) == tf.shape(mask)
-
-    mean = tf.keras.metric.Mean(name='mask_mean')
-
+l_function = tf.keras.losses.SparseCategoricalCrossentropy(reduction='none') #from_logits=False, reduction='none')
 def loss_function(real, pred):
-    l_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = l_function(real, pred)
     mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask    
-    # return tf.reduce_mean(loss_)
+    loss_ *= mask
+    #print('\nloss: ', tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask))
+    #return tf.reduce_mean(loss_)
     return tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask)
 
 def create_padding_mask(seq):
