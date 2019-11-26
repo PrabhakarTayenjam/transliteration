@@ -243,7 +243,7 @@ class Transformer(tf.keras.Model):
         self.decoder = Decoder(num_layers, d_model, num_heads, dff, 
                                 target_vocab_size, pe_target, rate)
 
-        self.final_layer = tf.keras.layers.Dense(target_vocab_size)
+        self.final_layer = tf.keras.layers.Dense(target_vocab_size, activation='softmax')
       
     def call(self, inp, tar, training, enc_padding_mask, 
              look_ahead_mask, dec_padding_mask):

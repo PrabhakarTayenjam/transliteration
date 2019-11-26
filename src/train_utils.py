@@ -23,7 +23,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
-l_function = tf.keras.losses.SparseCategoricalCrossentropy(reduction='none') #from_logits=False, reduction='none')
+l_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False, reduction='none')
 def loss_function(real, pred):
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     loss_ = l_function(real, pred)

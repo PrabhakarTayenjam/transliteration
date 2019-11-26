@@ -15,7 +15,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 train_details_path = 'train_details/'
 checkpoint_path = "checkpoints/train/"
-train_dataset_path = 'dataset/eng-hin/eng-hin-train.csv'
+train_dataset_path = 'dataset/eng-hin/eng-hin.csv'
 val_dataset_path = 'dataset/eng-hin/eng-hin-val.csv'
 
 train_dataset, inv_train = data.get_dataset(train_dataset_path)
@@ -34,11 +34,11 @@ transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS
 
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
-val_loss = tf.keras.metrics.Mean(name='train_loss')
-val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
+val_loss = tf.keras.metrics.Mean(name='val_loss')
+val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'val_accuracy')
 
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
-optimizer = tf.keras.optimizers.Adam(0.0001, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.optimizers.Adam(0.0001) #, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
@@ -74,6 +74,7 @@ def train_step(inp, tar_inp, tar_real):
 
     gradients = tape.gradient(loss, transformer.trainable_variables)    
     optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
+    print('\nLOSS: ', loss)
     train_loss(loss)
     train_accuracy(tar_real, predictions)
     return predictions
@@ -108,8 +109,12 @@ def write_pred(pred, tar):
     tar = tar.numpy().tolist()
 
     for elm in zip(pred, tar):
-        pred_file.write('pred: {}\n'.format(str(elm[0])))
-        pred_file.write('tar : {}\n\n'.format(str(elm[1])))
+        pred_file.write('P\tT\n')
+        for i in range(len(elm[1])):
+            if elm[1][i] == 0:
+                break
+            pred_file.write('{}\t{}\n'.format(elm[0][i], elm[1][i]))
+        pred_file.write('\n')
 
 
 def main():
@@ -161,7 +166,7 @@ def main():
             
             pred = train_step(inp, tar_inp, tar_real)
             
-            # write_pred(pred, tar_real)
+            write_pred(pred, tar_real)
             
             if (batch + 1) % 100 == 0:
                 print ('\tBatch update\tEpoch: {}\t Batch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(epoch + 1, batch + 1,
