@@ -74,7 +74,6 @@ def train_step(inp, tar_inp, tar_real):
 
     gradients = tape.gradient(loss, transformer.trainable_variables)    
     optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
-    print('\nLOSS: ', loss)
     train_loss(loss)
     train_accuracy(tar_real, predictions)
     return predictions
