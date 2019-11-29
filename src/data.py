@@ -84,7 +84,7 @@ def get_dataset(path):
 
 def get_val_dataset(path):
     try:
-        dataset_list = pd.read_csv(path).values.tolist()
+        dataset_list = pd.read_csv(path).values.tolist()[:10]
     except:
         print('File not found: ', path)
         exit()

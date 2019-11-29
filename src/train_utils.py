@@ -33,6 +33,18 @@ def loss_function(real, pred):
     #return tf.reduce_mean(loss_)
     return tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask)
 
+'''a_function = tf.keras.metrics.CategoricalAccuracy(name = 'a_function')
+softmax = tf.keras.layers.Softmax()
+def acc_function(real, pred):
+    a_function.reset_states()
+    pred = softmax(pred)
+    mask = tf.math.logical_not(tf.math.equal(real, 0))
+    mask = tf.cast(mask, dtype=pred.dtype)
+    pred *= mask
+    a_function(real, pred)
+    return a_function.result()
+'''
+
 def create_padding_mask(seq):
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
     
@@ -61,6 +73,22 @@ def create_masks(inp, tar):
     
     return enc_padding_mask, combined_mask, dec_padding_mask
 
+def _tr_from_numpy(numpy_tokens):
+    word = ''
+    for tk in numpy_tokens:
+        #if ((tk == lookup.hin_lookup[param.EOS]) or (tk == 0)):
+        if tk == 0:
+            return word
+        word += lookup.hin_rev_lookup.get(tk)
+    return word
+
+def tr_from_numpy(real, pred):
+    print('real: ', real)
+    print('pred: ', pred)
+    
+    tr_real = _tr_from_numpy(real)
+    tr_pred = _tr_from_numpy(pred)
+    return tr_real, tr_pred
 
 def evaluate(inp_sequence, transformer):
     inp = inp_sequence
@@ -168,7 +196,7 @@ class TrainDetails:
                 self.time_file = open('{}/time'.format(self.details_path), 'r+')
                 tm = self.time_file.read()
                 self.elapsed_time = float(tm)
-                print('loaded elapsed_time from     time, total elapsed time is: ', tm)
+                print('loaded elapsed_time from     time, total elapsed time is: ', tm, ' secs')
         except:
             print('time file creation failed')
             exit()

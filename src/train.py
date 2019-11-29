@@ -13,9 +13,9 @@ import train_utils as t_utils
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-train_details_path = 'train_details/'
+train_details_path = 'training_details/'
 checkpoint_path = "checkpoints/train/"
-train_dataset_path = 'dataset/eng-hin/eng-hin.csv'
+train_dataset_path = 'dataset/eng-hin/eng-hin-train.csv'
 val_dataset_path = 'dataset/eng-hin/eng-hin-val.csv'
 
 train_dataset, inv_train = data.get_dataset(train_dataset_path)
@@ -44,8 +44,10 @@ def parse_cl_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', dest='epochs', required=True, type=int, help='number of epochs')
     parser.add_argument('-i', dest='interval', default=5, type=int, help='interval to save checkpoints')
-    parser.add_argument('--restart', dest='restart', action='store_true',
-        help='delete checkpoint and restart training')
+    parser.add_argument('-R', dest='restart', action='store_true',
+        help='delete checkpoint, training_details and restart training')
+    parser.add_argument('-E', dest='evaluate', action='store_true',
+        help='evaluate after training completion')
     parser.add_argument('-D', dest='debug', action='store_true',
         help='debugging mode')
     return parser.parse_args()
@@ -78,6 +80,7 @@ def train_step(inp, tar_inp, tar_real):
     train_accuracy(tar_real, predictions)
     return predictions
 
+tr_file = open('./tr', 'w')
 def validate(val_dataset, transformer):
     val_loss.reset_states()
     val_accuracy.reset_states()
@@ -88,6 +91,10 @@ def validate(val_dataset, transformer):
         val_accuracy(inp, pred)
         loss = t_utils.loss_function(inp, pred)
         val_loss(loss)
+
+        pred = tf.argmax(pred, axis = 0)
+        tr_real, tr_pred = t_utils.tr_from_numpy(real.numpy(), pred.numpy())
+        tr_file.write('{}, {}\n'.format(tr_real, tr_pred))
 
         if (i + 1) % param.BATCH_SIZE == 0:
             print ('\tValidation update\tBatch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format( (i + 1) // param.BATCH_SIZE,
@@ -153,8 +160,8 @@ def main():
             print ('\nLatest checkpoint restored!!')
 
    
+    start = time.time()
     for epoch in range(cl_args.epochs):
-        start = time.time()
         print('\nEPOCH: ', epoch+1)
 
         train_loss.reset_states()
@@ -188,9 +195,14 @@ def main():
         train_details.save_metric('{:.4f}, {:.4f}, {:.4f}, {:.4f}'.format(train_loss.result(), 
             train_accuracy.result(), v_loss, v_accuracy))
     
+
+    if cl_args.evaluate:
+        val_loss, val_acc = validate(val_dataset, transformer)
+    # print('\n\nVal_loss: {}   Val_acc: {}\n\n'.format(val_loss, val_acc))
     # save checkppoint for last epoch
-    ckpt_save_path = ckpt_manager.save()
-    print ('\nSaving checkpoint for epoch {} at {}\n'.format(epoch+1, ckpt_save_path))
+    if cl_args.epochs != 0:
+        ckpt_save_path = ckpt_manager.save()
+        print ('\nSaving checkpoint for epoch {} at {}\n'.format(epoch+1, ckpt_save_path))
     epoch_time_taken = time.time() - start
     total_time_taken = train_details.save_elapsed_time(epoch_time_taken)
     print ('\nTime taken for this epoch: {}\n'.format(get_time(epoch_time_taken)))
