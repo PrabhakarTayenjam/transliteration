@@ -1,0 +1,10 @@
+.vscode/
+bkp/
+checkpoints/
+training_details/
+dataset/
+src/test.py
+src/__pycache__
+data-processing
+tr
+predictions

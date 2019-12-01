@@ -1,12 +1,12 @@
 import tensorflow as tf
-import model
+import numpy as np
 import argparse
 import time
 import os
 import shutil
 import pdb
-import numpy as np
 
+import model
 import data
 import param
 import train_utils as t_utils
@@ -15,30 +15,27 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 train_details_path = 'training_details/'
 checkpoint_path = "checkpoints/train/"
-train_dataset_path = 'dataset/eng-hin/eng-hin-train.csv'
-val_dataset_path = 'dataset/eng-hin/eng-hin-val.csv'
 
-train_dataset, inv_train = data.get_dataset(train_dataset_path)
-val_dataset, inv_val = data.get_val_dataset(val_dataset_path)
-print('Invalid dataset in train set: ', inv_train)
-print('Invalid dataset in val set : ', inv_train, '\n')
+# get the datasets
+train_dataset, val_dataset = data.get_dataset()
 
 # Transformer network
 transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS, param.DFF,
-    input_vocab_size = data.eng_vocab_size,
-    target_vocab_size = data.hin_vocab_size, 
+    input_vocab_size = data.inp_vocab_size,
+    target_vocab_size = data.tar_vocab_size, 
     pe_input = param.PAD_SIZE, 
     pe_target = param.PAD_SIZE,
     rate=param.DROPOUT
 )
 
+# Define metrics
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
 val_loss = tf.keras.metrics.Mean(name='val_loss')
 val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name = 'val_accuracy')
 
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
-optimizer = tf.keras.optimizers.Adam(0.0001) #, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.optimizers.Adam(0.001, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
@@ -85,7 +82,7 @@ def validate(val_dataset, transformer):
     val_loss.reset_states()
     val_accuracy.reset_states()
     for i, dataset in enumerate(val_dataset):
-        inp, real = dataset[0], dataset[1]
+        inp, real = dataset[0], dataset[2]
 
         pred = t_utils.evaluate(inp, transformer)
         val_accuracy(inp, pred)
@@ -168,7 +165,7 @@ def main():
         train_accuracy.reset_states()
 
         for batch, dataset in enumerate(train_dataset):
-            inp, tar_inp, tar_real = dataset[:, 0, :]    , dataset[:, 1, :], dataset[:, 2, :]            
+            inp, tar_inp, tar_real = dataset[:, 0, :]    , dataset[:, 1, :], dataset[:, 2, :]
             
             pred = train_step(inp, tar_inp, tar_real)
             

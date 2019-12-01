@@ -1,14 +1,15 @@
 import pandas as pd
-import sys
-
-if len(sys.argv) != 2:
-    print('Invalid arguments\nUsage: py pre-proc/mk_tokenxs_file.py <dataset_file_name>')
-    exit()
+import argparse
 
 
-csv_file_path = sys.argv[1]
-# get lang_code (file name without the csv extension)
-lang_code = csv_file_path.split('/')[-1].split('.')[0]
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', dest='in_file', required=True, help='Dataset file to be cleaned')
+parser.add_argument('-l', dest='lang_code', required=True, help='Language code')
+cl_args = parser.parse_args()
+
+csv_file_path = cl_args.in_file
+
+lang_code = cl_args.lang_code
 
 tokens_file_path = 'dataset/{}/{}.tokens'.format(lang_code, lang_code)
 
