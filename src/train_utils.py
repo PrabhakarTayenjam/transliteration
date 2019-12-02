@@ -5,7 +5,6 @@ import numpy as np
 
 import param
 import data
-import lookup
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -23,27 +22,30 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
-l_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+# shape(real) = (batch_size, pad_size)
+# shape(pred) = (batch_size, pad_size, tar_vocab_size)
 def loss_function(real, pred):
+    l_function = tf.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     mask = tf.math.logical_not(tf.math.equal(real, 0))
-    loss_ = l_function(real, pred)
+    loss_ = l_function(real, pred) # shape(loss_) = (BATCH_SIZE, PAD_SIZE)
     mask = tf.cast(mask, dtype=loss_.dtype)
     loss_ *= mask
-    #print('\nloss: ', tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask))
-    #return tf.reduce_mean(loss_)
+    # Return mean without the 0 elements
     return tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask)
 
-'''a_function = tf.keras.metrics.CategoricalAccuracy(name = 'a_function')
-softmax = tf.keras.layers.Softmax()
+# shape(real) = (batch_size, pad_size)
+# shape(pred) = (batch_size, pad_size, tar_vocab_size)
+a_function = tf.metrics.Accuracy()
 def acc_function(real, pred):
     a_function.reset_states()
-    pred = softmax(pred)
+    pred = tf.nn.softmax(pred, axis=-1)
+    pred = tf.argmax(pred, axis=-1) # shape(pred) = (BATCH_SIZE, PAD_SIZE)
     mask = tf.math.logical_not(tf.math.equal(real, 0))
     mask = tf.cast(mask, dtype=pred.dtype)
     pred *= mask
-    a_function(real, pred)
-    return a_function.result()
-'''
+    acc = a_function(real, pred)
+    return acc
+
 
 def create_padding_mask(seq):
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
@@ -73,36 +75,20 @@ def create_masks(inp, tar):
     
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-def _tr_from_numpy(numpy_tokens):
-    word = ''
-    for tk in numpy_tokens:
-        #if ((tk == lookup.hin_lookup[param.EOS]) or (tk == 0)):
-        if tk == 0:
-            return word
-        word += lookup.hin_rev_lookup.get(tk)
-    return word
-
-def tr_from_numpy(real, pred):
-    print('real: ', real)
-    print('pred: ', pred)
-    
-    tr_real = _tr_from_numpy(real)
-    tr_pred = _tr_from_numpy(pred)
-    return tr_real, tr_pred
-
+#@tf.function
 def evaluate(inp_sequence, transformer):
-    inp = inp_sequence
+    # shape(inp_sequence) = (pad_size)
     encoder_input = tf.expand_dims(inp_sequence, 0)
     
     # the first token to the decoder of the transformer should be the SOS.
-    decoder_input = [lookup.eng_lookup[param.SOS]]
+    decoder_input = [param.SOS_ID]
     decoder_input = tf.expand_dims(decoder_input, 0)
         
     for i in range(param.PAD_SIZE):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, decoder_input)
     
-        # predictions.shape == (batch_size, seq_len, vocab_size)
+        # predictions.shape == (batch_size, pad_size, vocab_size)
         predictions, attention_weights = transformer(encoder_input, 
                                                     decoder_input,
                                                     False,
@@ -116,7 +102,7 @@ def evaluate(inp_sequence, transformer):
         predicted_id = tf.cast(tf.argmax(last_char, axis=-1), tf.int32)
         
         # return the result if the predicted_id is equal to the end token
-        if predicted_id == lookup.eng_lookup[param.EOS]:
+        if predicted_id == param.EOS_ID:
             break
         
         # concatentate the predicted_id to the output which is given to the decoder
@@ -127,49 +113,8 @@ def evaluate(inp_sequence, transformer):
     pad = param.PAD_SIZE - tf.shape(predictions).numpy()[0]
     padding = tf.constant([[0, pad], [0, 0]])
     predictions = tf.pad(predictions, padding, 'CONSTANT')
-    return predictions
+    return predictions # shape(predictions) = (pad_size, tar_vocab_size)
 
-'''
-def evaluate(inp_sequence, transformer):
-    encoder_input = tf.expand_dims(inp_sequence, 0)
-    
-    # the first token to the decoder of the transformer should be the SOS.
-    decoder_input = [lookup.eng_lookup[param.SOS]]
-    decoder_input = tf.expand_dims(decoder_input, 0)
-        
-    for i in range(param.PAD_SIZE):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
-            encoder_input, decoder_input)
-    
-        # predictions.shape == (batch_size, seq_len, vocab_size)
-        predictions, attention_weights = transformer(encoder_input, 
-                                                    decoder_input,
-                                                    False,
-                                                    enc_padding_mask,
-                                                    combined_mask,
-                                                    dec_padding_mask)
-        
-        # select the last word from the seq_len dimension
-        last_char = predictions[: ,-1:, :]  # (batch_size, 1, vocab_size)
-
-        predicted_id = tf.cast(tf.argmax(last_char, axis=-1), tf.int32)
-        
-        # return the result if the predicted_id is equal to the end token
-        if predicted_id == lookup.eng_lookup[param.EOS]:
-            break
-        
-        # concatentate the predicted_id to the output which is given to the decoder
-        # as its input.
-        decoder_input = tf.concat([decoder_input, predicted_id], axis=-1)
-
-    pad = param.PAD_SIZE - tf.shape(decoder_input).numpy()[1]
-    padding = tf.constant([[0, 0], [0, pad]])
-    decoder_input = tf.pad(decoder_input, padding, 'CONSTANT')
-    decoder_input = tf.squeeze(decoder_input, axis=0)
-    print('Output: ', decoder_input)
-    print('Pred: ', predictions)
-    return decoder_input, attention_weights
-'''
 
 class TrainDetails:
     def __init__(self, details_path):

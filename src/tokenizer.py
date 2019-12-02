@@ -5,10 +5,10 @@ import pandas as pd
 class Tokenizer:
     def __init__(self, token_file_path, rev=False):
         self.__rev__ = rev
-        self.__inp_lookup__ = dict()
-        self.__tar_lookup__ = dict()
-        self.__inp_rev_lookup__ = dict()
-        self.__tar_rev_lookup__ = dict()
+        self.inp_lookup = dict()
+        self.tar_lookup = dict()
+        self.inp_rev_lookup = dict()
+        self.tar_rev_lookup = dict()
         
         self.sos = '%'
         self.eos = '$'
@@ -42,23 +42,23 @@ class Tokenizer:
             tar_tokens = tokens.split(',')[1]
 
         # i + 4: 3 for special tokens 1 for padding
-        self.__inp_lookup__[self.sos] = 1
-        self.__inp_lookup__[self.eos] = 2
-        self.__inp_lookup__[self.unk] = 3
+        self.inp_lookup[self.sos] = 1
+        self.inp_lookup[self.eos] = 2
+        self.inp_lookup[self.unk] = 3
         for i, tk in enumerate(inp_tokens):
-            self.__inp_lookup__[tk] = i + 4
-            self.__inp_rev_lookup__[i + 4] = tk
+            self.inp_lookup[tk] = i + 4
+            self.inp_rev_lookup[i + 4] = tk
 
-        self.__tar_lookup__[self.sos] = 1
-        self.__tar_lookup__[self.eos] = 2
-        self.__tar_lookup__[self.unk] = 3
+        self.tar_lookup[self.sos] = 1
+        self.tar_lookup[self.eos] = 2
+        self.tar_lookup[self.unk] = 3
         for i, tk in enumerate(tar_tokens):
-            self.__tar_lookup__[tk] = i + 4
-            self.__tar_rev_lookup__[i + 4] = tk
+            self.tar_lookup[tk] = i + 4
+            self.tar_rev_lookup[i + 4] = tk
 
         # vocab size += 3, for sos eos and unk
-        self.inp_vocab_size = len(self.__inp_lookup__) + 1
-        self.tar_vocab_size = len(self.__tar_lookup__) + 1
+        self.inp_vocab_size = len(self.inp_lookup) + 1
+        self.tar_vocab_size = len(self.tar_lookup) + 1
 
     # encode a single word
     # word is not modified
@@ -71,7 +71,7 @@ class Tokenizer:
 
         en_vec = np.zeros(en_vec_sz, dtype='float32')
         for i, ch in enumerate(word):
-            en_vec[i] = self.__inp_lookup__.get(ch, self.unk_id)
+            en_vec[i] = self.inp_lookup.get(ch, self.unk_id)
         return en_vec
         
     # encode a single word
@@ -85,7 +85,7 @@ class Tokenizer:
 
         en_vec = np.zeros(en_vec_sz, dtype='float32')
         for i, ch in enumerate(word):
-            en_vec[i] = self.__tar_lookup__.get(ch, self.unk_id)
+            en_vec[i] = self.tar_lookup.get(ch, self.unk_id)
         return en_vec
 
     # decode a single encoded numpy array,  return str
@@ -108,7 +108,7 @@ class Tokenizer:
                   continue
                 else:
                   return word
-            word += self.__inp_rev_lookup__.get(tk, self.unk)
+            word += self.inp_rev_lookup.get(tk, self.unk)
 
         return word
 
@@ -131,7 +131,7 @@ class Tokenizer:
                   continue
                 else:
                   return word
-            word += self.__tar_rev_lookup__.get(tk, self.unk)
+            word += self.tar_rev_lookup.get(tk, self.unk)
 
         return word
 
