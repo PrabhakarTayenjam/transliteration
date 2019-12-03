@@ -20,7 +20,7 @@ class Data:
             exit()
         try:
             val_dataset_path = 'dataset/{}/{}-val.csv'.format(lang_code, lang_code)
-            self.val_dataset = pd.read_csv(val_dataset_path).values.tolist()[:100]
+            self.val_dataset = pd.read_csv(val_dataset_path).values.tolist()[:200]
         except:
             print('Cannot open file: ', val_dataset_path)
             exit()

@@ -22,6 +22,8 @@ def parse_cl_args():
         help='delete checkpoint, training_details and restart training')
     parser.add_argument('-E', dest='evaluate', action='store_true',
         help='evaluate after training completion')
+    parser.add_argument('-V', dest='validate', action='store_true',
+        help='perform validation during training')
     parser.add_argument('-D', dest='debug', action='store_true',
         help='debugging mode')
     return parser.parse_args()
@@ -47,10 +49,8 @@ transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS
 )
 
 # Define metrics
-train_loss = tf.keras.metrics.Mean(name='train_loss')
-train_accuracy = tf.keras.metrics.Mean(name = 'train_accuracy')
-val_loss = tf.keras.metrics.Mean(name='val_loss')
-val_accuracy = tf.keras.metrics.Mean(name = 'val_accuracy')
+train_loss = tf.metrics.Mean(name='train_loss')
+train_accuracy = tf.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
@@ -79,14 +79,15 @@ def train_step(inp, tar_inp, tar_real):
 
     gradients = tape.gradient(loss, transformer.trainable_variables)    
     optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
-    acc = t_utils.acc_function(tar_real, predictions)
+    # acc = t_utils.acc_function(tar_real, predictions)
     train_loss(loss)
-    train_accuracy(acc)
+    train_accuracy(tar_real, predictions)
 
 tr_file = open('./tr', 'w')
-def validate(val_dataset):
-    val_loss.reset_states()
-    val_accuracy.reset_states()
+def validate(val_dataset, write=False):
+    val_loss = tf.keras.metrics.Mean(name='val_loss')
+    val_accuracy = tf.keras.metrics.Mean(name = 'val_accuracy')
+
     for i, dataset_row in enumerate(val_dataset):
         inp, real = dataset_row[0], dataset_row[2]
 
@@ -98,18 +99,48 @@ def validate(val_dataset):
         loss = t_utils.loss_function(inp, pred)
         acc  = t_utils.acc_function(inp, pred)
         val_loss(loss)
-        val_accuracy(int(acc.numpy() == 1.0))
+        val_accuracy(acc)
 
         pred = tf.argmax(pred, axis = -1)
         tr_inp  = dataset.tokenizer.inp_decode(inp.numpy()) 
         tr_real = dataset.tokenizer.tar_decode(real.numpy())
         tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
+        if write:
+          tr_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
+
+        if (i + 1) % (100) == 0:
+            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(val_loss.result(), val_accuracy.result()))
+    return val_loss.result(), val_accuracy.result()
+
+eval_file = open('./eval', 'w')
+def evaluate(test_dataset):
+    val_loss = tf.keras.metrics.Mean(name='val_loss')
+    true = 0
+
+    for i, dataset_row in enumerate(test_dataset):
+        inp, real = dataset_row[0], dataset_row[2]
+
+        pred = t_utils.evaluate(inp, transformer) 
+        # shape(pred) = (pad_size, tar_vocab_size)
+        # shape(real) = (pad_size)
+
+        # Calculate loss and accuracy
+        loss = t_utils.loss_function(real, pred)
+        val_loss(loss)
+
+        pred = tf.argmax(pred, axis = -1)
+        if t_utils.exact_equal(real, pred): # shape(real) == shape(pred)
+            true += 1
+
+        tr_inp  = dataset.tokenizer.inp_decode(inp.numpy()) 
+        tr_real = dataset.tokenizer.tar_decode(real.numpy())
+        tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
+        
         tr_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
 
-        if (i + 1) % param.BATCH_SIZE == 0:
-            print ('\tValidation update\tBatch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format( (i + 1) // param.BATCH_SIZE,
-                    val_loss.result(), val_accuracy.result()))
-    return val_loss.result(), val_accuracy.result()
+        if (i + 1) % (100) == 0:
+            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(val_loss.result(), true/(i+1)))
+    return val_loss.result(), float(true)/float(i)
 
 def get_time(secs):
     h = int(secs // (60 * 60))
@@ -176,8 +207,12 @@ def main():
         print ('\nEpoch: {}\t train_loss: {:.4f}\t train_acc: {:.4f}'.format(epoch + 1, train_loss.result(),
             train_accuracy.result()))
         
-        print('\nValidating...')        
-        v_loss, v_accuracy = 0, 0 # validate(val_dataset)
+        print('\nValidating...')            
+        if cl_args.validate:
+            validate(val_dataset, False)
+        else:
+            v_loss, v_accuracy = 0.0, 0.0
+
         print ('\nEpoch: {}\t train_loss: {:.4f}\t train_acc: {:.4f}'.format(epoch + 1, train_loss.result(),
             train_accuracy.result()))
         print ('Epoch: {}\t val_loss  : {:.4f}\t val_acc  : {:.4f}\n'.format(epoch + 1, v_loss, v_accuracy))        
@@ -188,8 +223,8 @@ def main():
     
 
     if cl_args.evaluate:
-        val_loss, val_acc = validate(val_dataset)
-        print('\nAfter validation, loss = {:.4f}, acc = {:.4f}'.format(val_loss, val_acc))
+        val_loss, val_acc = evaluate(val_dataset)
+        print('\nAfter evaluation, loss = {:.4f}, acc = {:.4f}'.format(val_loss, val_acc))
     
     # save checkppoint for last epoch
     if cl_args.epochs != 0:
