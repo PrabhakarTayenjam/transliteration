@@ -37,7 +37,7 @@ checkpoint_path = "checkpoints/train/{}".format(cl_args.lang_code)
 
 # Get the datasets
 dataset = data.Data(cl_args.lang_code)
-train_dataset, val_dataset = dataset.get_dataset()
+train_dataset, test_dataset, val_dataset = dataset.get_dataset()
 
 # Transformer network
 transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS, param.DFF,
@@ -83,30 +83,22 @@ def train_step(inp, tar_inp, tar_real):
     train_loss(loss)
     train_accuracy(tar_real, predictions)
 
-tr_file = open('./tr', 'w')
-def validate(val_dataset, write=False):
+def validate(val_dataset):
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.Mean(name = 'val_accuracy')
 
     for i, dataset_row in enumerate(val_dataset):
         inp, real = dataset_row[0], dataset_row[2]
 
-        pred = t_utils.evaluate(inp, transformer) 
+        pred = t_utils.predict(inp, transformer) 
         # shape(pred) = (pad_size, tar_vocab_size)
         # shape(real) = (pad_size)
 
         # Calculate loss and accuracy
-        loss = t_utils.loss_function(inp, pred)
-        acc  = t_utils.acc_function(inp, pred)
+        loss = t_utils.loss_function(real, pred)
+        acc  = t_utils.acc_function(real, pred)
         val_loss(loss)
         val_accuracy(acc)
-
-        pred = tf.argmax(pred, axis = -1)
-        tr_inp  = dataset.tokenizer.inp_decode(inp.numpy()) 
-        tr_real = dataset.tokenizer.tar_decode(real.numpy())
-        tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
-        if write:
-          tr_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
 
         if (i + 1) % (100) == 0:
             print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(val_loss.result(), val_accuracy.result()))
@@ -114,20 +106,21 @@ def validate(val_dataset, write=False):
 
 eval_file = open('./eval', 'w')
 def evaluate(test_dataset):
-    val_loss = tf.keras.metrics.Mean(name='val_loss')
+    eval_loss = tf.keras.metrics.Mean(name='eval_loss')
     true = 0
 
     for i, dataset_row in enumerate(test_dataset):
         inp, real = dataset_row[0], dataset_row[2]
 
-        pred = t_utils.evaluate(inp, transformer) 
+        pred = t_utils.predict(inp, transformer) 
         # shape(pred) = (pad_size, tar_vocab_size)
         # shape(real) = (pad_size)
 
         # Calculate loss and accuracy
         loss = t_utils.loss_function(real, pred)
-        val_loss(loss)
+        eval_loss(loss)
 
+        # shape(pred) = (pad_size, tar_vocab_size)
         pred = tf.argmax(pred, axis = -1)
         if t_utils.exact_equal(real, pred): # shape(real) == shape(pred)
             true += 1
@@ -136,11 +129,11 @@ def evaluate(test_dataset):
         tr_real = dataset.tokenizer.tar_decode(real.numpy())
         tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
         
-        tr_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
+        eval_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
 
         if (i + 1) % (100) == 0:
-            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(val_loss.result(), true/(i+1)))
-    return val_loss.result(), float(true)/float(i)
+            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(eval_loss.result(), true/(i+1)))
+    return eval_loss.result(), float(true)/float(i)
 
 def get_time(secs):
     h = int(secs // (60 * 60))
@@ -197,7 +190,7 @@ def main():
             train_step(inp, tar_inp, tar_real)
             
             if (batch + 1) % 100 == 0:
-                print ('\tBatch update\tEpoch: {}\t Batch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(epoch + 1, batch + 1,
+                print ('\tTraining batch update\tEpoch: {}\t Batch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(epoch + 1, batch + 1,
                     train_loss.result(), train_accuracy.result()))
         
         if (epoch + 1) % cl_args.interval == 0:
@@ -209,7 +202,7 @@ def main():
         
         print('\nValidating...')            
         if cl_args.validate:
-            validate(val_dataset, False)
+            v_loss, v_accuracy = validate(val_dataset)
         else:
             v_loss, v_accuracy = 0.0, 0.0
 
@@ -223,7 +216,8 @@ def main():
     
 
     if cl_args.evaluate:
-        val_loss, val_acc = evaluate(val_dataset)
+        print('\nEvaluating ...\n')
+        val_loss, val_acc = evaluate(test_dataset)
         print('\nAfter evaluation, loss = {:.4f}, acc = {:.4f}'.format(val_loss, val_acc))
     
     # save checkppoint for last epoch

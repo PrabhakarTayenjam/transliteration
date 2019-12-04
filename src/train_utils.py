@@ -86,7 +86,7 @@ def create_masks(inp, tar):
     return enc_padding_mask, combined_mask, dec_padding_mask
 
 #@tf.function
-def evaluate(inp_sequence, transformer):
+def predict(inp_sequence, transformer):
     # shape(inp_sequence) = (pad_size)
     encoder_input = tf.expand_dims(inp_sequence, 0)
     
