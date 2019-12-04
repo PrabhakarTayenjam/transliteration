@@ -22,41 +22,6 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
-l_function = tf.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-# shape(real) = (batch_size, pad_size)
-# shape(pred) = (batch_size, pad_size, tar_vocab_size)
-def loss_function(real, pred):
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
-    loss_ = l_function(real, pred) # shape(loss_) = (BATCH_SIZE, PAD_SIZE)
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
-    # Return mean without the 0 elements
-    return tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask)
-
-# shape(real) = (batch_size, pad_size)
-# shape(pred) = (batch_size, pad_size, tar_vocab_size)
-def acc_function(real, pred):
-    a_function = tf.metrics.Accuracy()
-    pred = tf.nn.softmax(pred, axis=-1)
-    pred = tf.argmax(pred, axis=-1) # shape(pred) = (BATCH_SIZE, PAD_SIZE)
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
-    mask = tf.cast(mask, dtype=pred.dtype)
-    pred *= mask
-    acc = a_function(real, pred)
-    return acc
-
-# shape(real) = (pad_size)
-# shape(pred) = (pad_size)
-def exact_equal(real, pred):
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
-    mask = tf.cast(mask, dtype=pred.dtype)
-    pred *= mask
-    pred = pred.numpy()
-    real = real.numpy()
-    return np.array_equal(real, pred)
-    
-
-
 def create_padding_mask(seq):
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
     

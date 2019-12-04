@@ -9,6 +9,7 @@ import pdb
 import model
 import data
 import param
+import metrics
 import train_utils as t_utils
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -22,7 +23,7 @@ def parse_cl_args():
         help='delete checkpoint, training_details and restart training')
     parser.add_argument('-E', dest='evaluate', action='store_true',
         help='evaluate after training completion')
-    parser.add_argument('-V', dest='validate', action='store_true',
+    parser.add_argument('-V', dest='val_step', action='store_true',
         help='perform validation during training')
     parser.add_argument('-D', dest='debug', action='store_true',
         help='debugging mode')
@@ -50,10 +51,9 @@ transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS
 
 # Define metrics
 train_loss = tf.metrics.Mean(name='train_loss')
-train_accuracy = tf.metrics.SparseCategoricalAccuracy(name = 'train_accuracy')
+train_accuracy = metrics.SparseAccuracy()
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
-
 
 # The @tf.function trace-compiles train_step into a TF graph for faster
 # execution. The function specializes to the precise shape of the argument
@@ -69,23 +69,24 @@ train_step_signature = [
 def train_step(inp, tar_inp, tar_real):
     enc_padding_mask, combined_mask, dec_padding_mask = t_utils.create_masks(inp, tar_inp)  
 
+    # shape(inp) = (batch_size, pad_size)
+    # shape(predictions) = (batch_size, pad_size, tar_vocab_size)
     with tf.GradientTape() as tape:
         predictions, _ = transformer(inp, tar_inp, 
                                     True, 
                                     enc_padding_mask, 
                                     combined_mask, 
                                     dec_padding_mask)
-        loss = t_utils.loss_function(tar_real, predictions)
+        loss = metrics.loss_function(tar_real, predictions)
 
     gradients = tape.gradient(loss, transformer.trainable_variables)    
     optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
-    # acc = t_utils.acc_function(tar_real, predictions)
     train_loss(loss)
-    train_accuracy(tar_real, predictions)
+    # train_accuracy(tar_real, predictions)
 
-def validate(val_dataset):
+def val_step(val_dataset):
     val_loss = tf.keras.metrics.Mean(name='val_loss')
-    val_accuracy = tf.keras.metrics.Mean(name = 'val_accuracy')
+    val_accuracy = metrics.SparseAccuracySingle()
 
     for i, dataset_row in enumerate(val_dataset):
         inp, real = dataset_row[0], dataset_row[2]
@@ -95,20 +96,20 @@ def validate(val_dataset):
         # shape(real) = (pad_size)
 
         # Calculate loss and accuracy
-        loss = t_utils.loss_function(real, pred)
-        acc  = t_utils.acc_function(real, pred)
+        loss = metrics.loss_function(real, pred)
         val_loss(loss)
-        val_accuracy(acc)
+        val_accuracy(real, pred)
 
         if (i + 1) % (100) == 0:
-            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(val_loss.result(), val_accuracy.result()))
+            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(
+                val_loss.result(), val_accuracy.result()))
     return val_loss.result(), val_accuracy.result()
 
 eval_file = open('./eval', 'w')
 def evaluate(test_dataset):
     eval_loss = tf.keras.metrics.Mean(name='eval_loss')
-    true = 0
-
+    eval_acc  = metrics.SparseAccuracySingle()
+   
     for i, dataset_row in enumerate(test_dataset):
         inp, real = dataset_row[0], dataset_row[2]
 
@@ -117,14 +118,11 @@ def evaluate(test_dataset):
         # shape(real) = (pad_size)
 
         # Calculate loss and accuracy
-        loss = t_utils.loss_function(real, pred)
+        loss = metrics.loss_function(real, pred)
         eval_loss(loss)
+        eval_acc(real, pred)
 
-        # shape(pred) = (pad_size, tar_vocab_size)
         pred = tf.argmax(pred, axis = -1)
-        if t_utils.exact_equal(real, pred): # shape(real) == shape(pred)
-            true += 1
-
         tr_inp  = dataset.tokenizer.inp_decode(inp.numpy()) 
         tr_real = dataset.tokenizer.tar_decode(real.numpy())
         tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
@@ -132,8 +130,8 @@ def evaluate(test_dataset):
         eval_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
 
         if (i + 1) % (100) == 0:
-            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(eval_loss.result(), true/(i+1)))
-    return eval_loss.result(), float(true)/float(i)
+            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(eval_loss.result(), eval_acc.result()))
+    return eval_loss.result(), eval_acc.result()
 
 def get_time(secs):
     h = int(secs // (60 * 60))
@@ -201,8 +199,8 @@ def main():
             train_accuracy.result()))
         
         print('\nValidating...')            
-        if cl_args.validate:
-            v_loss, v_accuracy = validate(val_dataset)
+        if cl_args.val_step:
+            v_loss, v_accuracy = val_step(val_dataset)
         else:
             v_loss, v_accuracy = 0.0, 0.0
 
