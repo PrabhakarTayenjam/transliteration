@@ -17,7 +17,7 @@ print('Getting tokens from: ', csv_file_path)
 print('Tokens file at: ', tokens_file_path)
 
 try:
-    csv_file = pd.read_csv(csv_file_path)
+    csv_file = pd.read_csv(csv_file_path, header=None)
 except:
     print('\nCannot open file: ', csv_file_path)
     exit()

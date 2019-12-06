@@ -51,7 +51,7 @@ transformer = model.Transformer(param.NUM_LAYERS, param.D_MODEL, param.NUM_HEADS
 
 # Define metrics
 train_loss = tf.metrics.Mean(name='train_loss')
-train_accuracy = metrics.SparseAccuracy()
+# train_accuracy = metrics.SparseAccuracy()
 learning_rate = t_utils.CustomSchedule(param.D_MODEL)
 optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
 
@@ -127,10 +127,10 @@ def evaluate(test_dataset):
         tr_real = dataset.tokenizer.tar_decode(real.numpy())
         tr_pred = dataset.tokenizer.tar_decode(pred.numpy())
         
-        eval_file.write('{}, {}, {}\n'.format(tr_inp, tr_real, tr_pred))
+        eval_file.write('{}, {}, {}, {}\n'.format(tr_inp, tr_real, tr_pred, str(tr_real == tr_pred)))
 
         if (i + 1) % (100) == 0:
-            print ('\tValidation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(eval_loss.result(), eval_acc.result()))
+            print ('\tEvaluation update\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(eval_loss.result(), eval_acc.result()))
     return eval_loss.result(), eval_acc.result()
 
 def get_time(secs):
@@ -180,7 +180,7 @@ def main():
         print('\nEPOCH: ', epoch+1)
 
         train_loss.reset_states()
-        train_accuracy.reset_states()
+        # train_accuracy.reset_states()
 
         for batch, dataset in enumerate(train_dataset):
             inp, tar_inp, tar_real = dataset[:, 0, :]    , dataset[:, 1, :], dataset[:, 2, :]
@@ -189,14 +189,14 @@ def main():
             
             if (batch + 1) % 100 == 0:
                 print ('\tTraining batch update\tEpoch: {}\t Batch: {}\t Loss: {:.2f}\t Accuracy: {:.2f}'.format(epoch + 1, batch + 1,
-                    train_loss.result(), train_accuracy.result()))
+                    train_loss.result(), 0))
         
         if (epoch + 1) % cl_args.interval == 0:
             ckpt_save_path = ckpt_manager.save()
             print ('\nSaving checkpoint for epoch {} at {}\n'.format(epoch+1, ckpt_save_path))
             
         print ('\nEpoch: {}\t train_loss: {:.4f}\t train_acc: {:.4f}'.format(epoch + 1, train_loss.result(),
-            train_accuracy.result()))
+            0))
         
         print('\nValidating...')            
         if cl_args.val_step:
@@ -205,12 +205,12 @@ def main():
             v_loss, v_accuracy = 0.0, 0.0
 
         print ('\nEpoch: {}\t train_loss: {:.4f}\t train_acc: {:.4f}'.format(epoch + 1, train_loss.result(),
-            train_accuracy.result()))
+            0))
         print ('Epoch: {}\t val_loss  : {:.4f}\t val_acc  : {:.4f}\n'.format(epoch + 1, v_loss, v_accuracy))        
 
         # save metrics
         train_details.save_metric('{:.4f}, {:.4f}, {:.4f}, {:.4f}'.format(train_loss.result(), 
-            train_accuracy.result(), v_loss, v_accuracy))
+            0, v_loss, v_accuracy))
     
 
     if cl_args.evaluate:

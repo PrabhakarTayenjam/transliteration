@@ -12,6 +12,7 @@ Output should be csv dataset with the conditions:
 
 import pandas as pd
 import argparse
+import random
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
@@ -67,6 +68,7 @@ def valid(dataset_row, length = 32, valid_tokens=None):
     return True
 
 # should be language independant
+# type(dataset) = list
 def clean_and_write(dataset, out_file):
     invalid_count = 0
     redundant_count = 0
@@ -75,12 +77,18 @@ def clean_and_write(dataset, out_file):
 
     print('Total input datasets: {}\n'.format(total))
 
-    for dataset_row in dataset:
+    random.shuffle(dataset)
+    for i, dataset_row in enumerate(dataset):
         if valid(dataset_row):
             dataset_row = tuple(dataset_row)
             if dataset_row not in unique_dataset:
                 unique_dataset.add(dataset_row)
                 out_file.write(','.join(dataset_row) + '\n')
+
+                if i < 500:
+                    val_file.write(','.join(dataset_row) + '\n')
+                else if i >= 500 and i < 1500:
+                    test
             else:
                 print('Redundant: {}'.format(dataset_row))
                 redundant_count += 1
@@ -96,7 +104,7 @@ if __name__ == '__main__':
     out_datast_file_path = 'dataset/{}/{}.csv'.format(cl_args.lang_code, cl_args.lang_code)
 
     try:
-        dataset = pd.read_csv(cl_args.in_file, sep=',', error_bad_lines=False).values.tolist()
+        dataset = pd.read_csv(cl_args.in_file, sep=',', error_bad_lines=False, header=None).values.tolist()
     except Exception as e:
         print(e)
         print('File not exist: ', cl_args.in_file)
