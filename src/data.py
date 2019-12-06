@@ -26,7 +26,7 @@ class Data:
             exit()
         try:
             test_dataset_path = 'dataset/{}/{}-test.csv'.format(lang_code, lang_code)
-            self.test_dataset = pd.read_csv(test_dataset_path, header=None).values.tolist() # [:300]
+            self.test_dataset = pd.read_csv(test_dataset_path, header=None).values.tolist()[:300]
         except:
             print('Cannot open file: ', val_dataset_path)
             exit()

@@ -84,11 +84,6 @@ def clean_and_write(dataset, out_file):
             if dataset_row not in unique_dataset:
                 unique_dataset.add(dataset_row)
                 out_file.write(','.join(dataset_row) + '\n')
-
-                if i < 500:
-                    val_file.write(','.join(dataset_row) + '\n')
-                else if i >= 500 and i < 1500:
-                    test
             else:
                 print('Redundant: {}'.format(dataset_row))
                 redundant_count += 1

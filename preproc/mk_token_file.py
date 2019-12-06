@@ -18,7 +18,8 @@ print('Tokens file at: ', tokens_file_path)
 
 try:
     csv_file = pd.read_csv(csv_file_path, header=None)
-except:
+except Exception as e:
+    print(e)
     print('\nCannot open file: ', csv_file_path)
     exit()
 
