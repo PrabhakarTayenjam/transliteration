@@ -1,10 +1,6 @@
 import numpy as np
 import tensorflow as tf
-
-def exact_equal(real, pred):
-    pred = pred.numpy()
-    real = real.numpy()
-    return np.array_equal(real, pred)
+import param
 
 l_function = tf.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 # shape(real) = (batch_size, pad_size)
@@ -17,75 +13,61 @@ def loss_function(real, pred):
     # Return mean without the 0 elements
     return tf.math.reduce_sum(loss_) / tf.math.reduce_sum(mask)
 
-class SparseAccuracySingle:
-    def __init__(self):
-        self.true_count = 0
-        self.total = 0
-
-    def __call__(self, real, pred):
-        # shape(real) = (pad_size)
-        # shape(pred) = (pad_size, tar_vocab_size)
-        real_shape = tf.shape(real).numpy()
-        pred_shape = tf.shape(pred).numpy()
-        real_rank = tf.rank(real)
-        pred_rank = tf.rank(pred)
-
-        assert real_rank == 1
-        assert pred_rank == 2
-        assert real_shape[0] == pred_shape[0]
-        
+# mask pred according to eos_id index
+def masked_equal(real, pred, apply_argmax = False):
+    if apply_argmax:
         pred = tf.argmax(pred, axis=-1)
-        mask = tf.math.logical_not(tf.math.equal(real, 0))
-        mask = tf.cast(mask, dtype=pred.dtype)
+
+    try:
+        eos_index = list(pred.numpy()).index(param.EOS_ID)
+        ones = np.ones(eos_index)
+        zeros = np.zeros(len(pred) - eos_index)
+        mask = np.append(ones, zeros)
+        mask = tf.constant(mask)
         pred *= mask
+    except:
+        # eos_id not found
+        pass
+    return np.array_equal(real.numpy(), pred.numpy())
 
-        if exact_equal(real, pred):
-            self.true_count += 1
-        self.total += 1
+def cer(real, pred):
+    # shape(real) = shape(pred) = (pad_sz)
+    real = tf.cast(real, dtype='int32')
+    pred = tf.cast(pred, dtype='int32')
+    error = real != pred
+    error = tf.cast(error, dtype='int32')
+    return tf.reduce_sum(error) / len(real)
 
-    def reset_states(self):
-        self.true_count = 0
-        self.total = 0
-    
-    def result(self):
-        return float(self.true_count) / float(self.total)
-
-class SparseAccuracy:
+class PerformanceMetrics:
     def __init__(self):
-        self.true_count = 0
-        self.total = 0
+        self.total_word = 0.0
+        self.error_word_count = 0.0
+        self.loss = tf.metrics.Mean(name='performance_loss')
+        self.cer  = tf.metrics.Mean(name='character_error_rate')    
 
-    def __call__(self, real, pred):
-        # shape(real) = (batch_size, pad_size)
-        # shape(pred) = (batch_size, pad_size, tar_vocab_size)
-        real_shape = tf.shape(real).numpy()
-        pred_shape = tf.shape(pred).numpy()
-        real_rank = tf.rank(real)
-        pred_rank = tf.rank(pred)
+    def __call__(self, real_ref, pred):
+        # shape(pred) = (pad_size)
+        # shape(real_ref) = (None, pad_size)
+        self.total_word += 1.0
+        cer_list = [1.0]
+        loss_list = [999.0]
+        error = 0.0
 
-        assert real_rank == 2
-        assert pred_rank == 3
-        assert real_shape[0] == pred_shape[0]
-        assert real_shape[1] == pred_shape[1]
-
-        pred = tf.argmax(pred, axis=-1)
-
-        for i, pair in enumerate(zip(real, pred)):
-            # shape(real) = shape(pred) = (pad_size)
-            real = pair[0]
-            pred = pair[1]
-
-            mask = tf.math.logical_not(tf.math.equal(real, 0))
-            mask = tf.cast(mask, dtype=pred.dtype)
-            pred *= mask
-
-            if exact_equal(real, pred):
-                self.true_count += 1
-        self.total += i+1
+        for real in real_ref:
+            loss_list.append(loss_function(real, pred))
+            pred = tf.argmax(pred, axis=-1)
+            cer_list.append(cer(real, pred))
+            if not masked_equal(real, pred):
+                error = 1.0
+        self.error_word_count += error
+        self.loss(min(loss_list))
+        self.cer(min(cer_list))
 
     def reset_states(self):
-        self.true_count = 0
-        self.total = 0
-    
+        self.error_word_count = 0.0
+        self.total_word = 0.0
+        self.cer.reset_states()
+        self.loss.reset_states()
+
     def result(self):
-        return float(self.true_count) / float(self.total)
+        return self.loss.result(), self.cer.result(), self.error_word_count / self.total_word
