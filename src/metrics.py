@@ -55,9 +55,9 @@ class PerformanceMetrics:
 
         for real in real_ref:
             loss_list.append(loss_function(real, pred))
-            pred = tf.argmax(pred, axis=-1)
-            cer_list.append(cer(real, pred))
-            if not masked_equal(real, pred):
+            tmp_pred = tf.argmax(pred, axis=-1) # do not change pred, shape error in next iteration
+            cer_list.append(cer(real, tmp_pred))
+            if not masked_equal(real, tmp_pred):
                 error = 1.0
         self.error_word_count += error
         self.loss(min(loss_list))
