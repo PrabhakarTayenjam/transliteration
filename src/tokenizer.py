@@ -138,10 +138,10 @@ class Tokenizer:
     # encode dataset, dataset is a list of input and target pairs, dtype = list([str, str])
     # dataset is not modified
     # return encoded dataset, dtype = np array of float32
-    def encode_dataset(self, dataset, pad_size = None, rev=False):
+    def encode_dataset(self, dataset, pad_size = None):
         en_dataset = []
         for dataset_row in dataset:
-            if rev:
+            if self.__rev__:
                 inp = dataset_row[1]
                 tar = dataset_row[0]
             else:

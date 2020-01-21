@@ -7,10 +7,10 @@ import param
 
 
 class Data:
-    def __init__(self, lang_code):
+    def __init__(self, lang_code, rev):
         tk_file_path = 'dataset/{}/{}.tokens'.format(lang_code, lang_code)     
         # Tokenizer
-        self.tokenizer = tokenizer.Tokenizer(tk_file_path)
+        self.tokenizer = tokenizer.Tokenizer(tk_file_path, rev)
 
         try:
             train_dataset_path = 'dataset/{}/{}-train.csv'.format(lang_code, lang_code)
