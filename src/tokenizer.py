@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class Tokenizer:
-    def __init__(self, token_file_path, rev=False):
+    def __init__(self, token_file_path, rev=True):
         self.__rev__ = rev
         self.inp_lookup = dict()
         self.tar_lookup = dict()
@@ -138,7 +138,7 @@ class Tokenizer:
     # encode dataset, dataset is a list of input and target pairs, dtype = list([str, str])
     # dataset is not modified
     # return encoded dataset, dtype = np array of float32
-    def encode_dataset(self, dataset, pad_size = None, rev=False):
+    def encode_dataset(self, dataset, pad_size = None, rev=True):
         en_dataset = []
         for dataset_row in dataset:
             if rev:
