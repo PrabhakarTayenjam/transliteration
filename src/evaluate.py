@@ -12,6 +12,8 @@ import tensorflow as tf
 def parse_cl_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', dest='lang_code', required=True, help='language code')
+    parser.add_argument('-r', dest='reverse', action='store_true',
+        help='reverse the example')
     parser.add_argument('-S', dest='short_test', action='store_true',
         help='reduce the dataset size for a short test of the code')
     return parser.parse_args()
@@ -55,7 +57,7 @@ if __name__ == '__main__':
     best_checkpoint_path = 'records/active/checkpoints/best'
     
     # Get the datasets
-    dataset = data.Data(cl_args.lang_code)
+    dataset = data.Data(cl_args.lang_code, cl_args.reverse)
     _, test_dataset, _ = dataset.get_dataset(cl_args.short_test)
 
     # Transformer network

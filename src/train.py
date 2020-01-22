@@ -24,7 +24,9 @@ def parse_cl_args():
     parser.add_argument('-R', dest='restart', action='store_true',
         help='delete checkpoint, training_details and restart training')
     parser.add_argument('-V', dest='no_validate', action='store_true',
-        help='perform validation during training')
+        help='do not perform validation during training')
+    parser.add_argument('-r', dest='reverse', action='store_true',
+        help='reverse the example')
     parser.add_argument('-S', dest='short_test', action='store_true',
         help='reduce the dataset size for a short test of the code')
     parser.add_argument('-D', dest='debug', action='store_true',
@@ -52,7 +54,7 @@ if cl_args.epochs < 1:
     exit()
 
 # Get the datasets
-dataset = data.Data(cl_args.lang_code)
+dataset = data.Data(cl_args.lang_code, cl_args.reverse)
 train_dataset, test_dataset, val_dataset = dataset.get_dataset(cl_args.short_test)
 
 # Transformer network
