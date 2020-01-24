@@ -122,8 +122,12 @@ if __name__ == '__main__':
 
     # Store training details
     dataset_size = dataset.get_dataset_size()
+
+    tmp_lang_code = cl_args.lang_code
+    if cl_args.reverse:
+      tmp_lang_code += '-reverse'
     extra = 'lang_code: {}\tepochs: {},\ttrain_size: {},\tval_size: {}'.format(
-        cl_args.lang_code, cl_args.epochs, dataset_size[0], dataset_size[0])
+        tmp_lang_code, cl_args.epochs, dataset_size[0], dataset_size[0])
     train_details = utils.TrainDetails(train_details_path, extra=extra)
 
     if cl_args.restart:

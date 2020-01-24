@@ -10,33 +10,6 @@ def parse_cl_args():
         help='reduce the dataset size for a short test of the code')
     return parser.parse_args()
 
-def draw_loss_graph(epochs, train_loss, val_loss, cl_args):
-    plt.plot(epochs, train_loss, label = 'training')
-    plt.plot(epochs, val_loss, label = 'validation')
-
-    plt.legend(loc = 'upper right')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-
-    if not cl_args.dont_save:
-        img = cl_args.record_dir + "/loss_graph.png"
-        plt.savefig(img) # save to file
-    if cl_args.on_screen:
-        plt.show()
-
-def draw_err_graph(epochs, cer_list, wer_list, cl_args):
-    plt.plot(epochs, cer_list, label = 'CER')
-    plt.plot(epochs, wer_list, label = 'WER')
-
-    plt.legend(loc = 'upper right')
-    plt.xlabel('Epoch')
-    plt.ylabel('Error rate')
-
-    if not cl_args.dont_save:
-        img = cl_args.record_dir + "/err_graph.png"
-        plt.savefig(img) # save to file
-    if cl_args.on_screen:
-        plt.show()
 
 if __name__ == '__main__':
     cl_args = parse_cl_args()
@@ -89,6 +62,7 @@ if __name__ == '__main__':
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.title('Epochs vs Loss')
+    plt.grid(True)
     plt.legend([t_handle, v_handle], ['training', 'validation'], loc = 'upper right')
 
     plt.subplot(122)
@@ -98,6 +72,7 @@ if __name__ == '__main__':
     plt.xlabel('Epochs')
     plt.ylabel('Error rate')
     plt.title('Epoch vs Error rate')
+    plt.grid(True)
     plt.legend([cer_handle, wer_handle], ['CER', 'WER'], loc = 'upper right')
 
     plt.subplots_adjust(bottom=0.2)
