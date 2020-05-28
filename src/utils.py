@@ -152,18 +152,14 @@ class TrainDetails:
             sys.exit()
 
         try:
-            if not os.path.exists('{}/time'.format(self.details_path)):
-                self.time_file = open('{}/time'.format(self.details_path), 'w')
-                self.time_file.write('0')
-                print('time file does not exist, created new file')
-                self.elapsed_time = 0
-            else:
-                self.time_file = open('{}/time'.format(self.details_path), 'r+')
-                tm = self.time_file.read()
+            if os.path.exists('{}/time'.format(self.details_path)):
+                time_file = open('{}/time'.format(self.details_path), 'r')
+                tm = time_file.read()
                 self.elapsed_time = float(tm)
                 print('loaded elapsed_time from     time, total elapsed time is: ', tm, ' secs')
-        except:
-            print('time file creation failed')
+                time_file.close()
+        except Exception as e:
+            print('time file creation failed: ', e)
             exit()
 
         try:
@@ -197,10 +193,9 @@ class TrainDetails:
         self.param_file.write('EMB_DIM = D_MODEL')
 
     def save_elapsed_time(self, tm):
+        time_file = open('{}/time'.format(self.details_path), 'w')
         self.elapsed_time += tm
-        self.time_file.seek(0)
-        self.time_file.truncate()
-        self.time_file.write('{:.4f}'.format(self.elapsed_time))
+        time_file.write('{:.4f}'.format(self.elapsed_time))
         return self.elapsed_time
 
     def save_metric(self, metric):
