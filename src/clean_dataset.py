@@ -5,14 +5,14 @@ Output should be csv dataset with the conditions:
   2. There should not be any invalid tokens
   3. Contains no redundant dataset (i.e. No two rows should have exact same dataset pairs)
 
-  *** Subsequent processing of the dataset assumes the above two conditions are
-      satisfied for the and process without any error handling of the above two
-      conditions
+  *** Subsequent processing of the dataset assumes the above conditions are
+      satisfied and process without any error handling of the above conditions
 '''
 
 import pandas as pd
 import argparse
 import random
+import os
 
 def parse_cl_args():
     parser = argparse.ArgumentParser()
@@ -51,19 +51,19 @@ def valid(dataset_row, length = 32, valid_tokens=None):
         dataset_row[0] = normalise(dataset_row[0])
         dataset_row[1] = normalise(dataset_row[1])
     except:
-        print('Invalid dataset: {}'.format(dataset_row))
+        print('Invalid dataset: {}. Not a pair'.format(dataset_row))
         return False
 
     if len(dataset_row[0]) > length or len(dataset_row[1]) > length:
-        print('Invalid dataset: {}'.format(dataset_row))
+        print('Invalid dataset: {}. Max word length exceeded'.format(dataset_row))
         return False
 
     for tk in dataset_row[0] + dataset_row[1]:
         if tk in filters:
-            print('Invalid dataset: {}'.format(dataset_row))
+            print('Invalid dataset: {}. Contains invalid token: {}'.format(dataset_row, tk))
             return False
         if valid_tokens and tk not in valid_tokens:
-            print('Invalid dataset: {}'.format(dataset_row))
+            print('Invalid dataset: {}. Token not in valid token set: {}'.format(dataset_row, tk))
             return False
     return True
 
@@ -100,15 +100,18 @@ if __name__ == '__main__':
 
     try:
         dataset = pd.read_csv(cl_args.in_file, sep=',', error_bad_lines=False, header=None).values.tolist()
-    except Exception as e:
-        print(e)
-        print('File not exist: ', cl_args.in_file)
+    except Exception as error:
+        print('Csv file read failed: ', cl_args.in_file)
+        print(error);
         exit()
 
     try:
+        # create a lang-code directory in dataset directory
+        os.makedirs('dataset/{}'.format(cl_args.lang_code), exist_ok = True)
         out_dataset_file = open(out_datast_file_path, 'w')
-    except:
-        print('Cannot open file: ', out_datast_file_path)
+    except Exception as error:
+        print('Creating file failed: ', out_datast_file_path)
+        print(error);
         exit()
 
     total_in, total_out, invalid_count, redundant_count = clean_and_write(dataset, out_dataset_file)
